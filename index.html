@@ -1,51 +1,155 @@
-@ECHO off
-java -jar forge-1.12.2-14.23.5.2864-installer.jar
-pause<!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>保養紀錄小助手</title>
     <style>
-        body { font-family: sans-serif; background: #1c1c1e; color: white; padding: 20px; }
-        .card { background: #2c2c2e; border-radius: 15px; padding: 20px; margin-bottom: 20px; }
-        h2 { color: #0a84ff; margin-top: 0; }
-        .item { display: flex; align-items: center; padding: 18px 0; border-bottom: 1px solid #3a3a3c; font-size: 20px; }
-        input[type="checkbox"] { width: 28px; height: 28px; margin-right: 15px; }
-        button { width: 100%; background: #30d158; color: white; border: none; padding: 20px; border-radius: 15px; font-size: 22px; font-weight: bold; }
-        .stats { display: grid; grid-template-columns: 1fr auto; gap: 15px; font-size: 18px; }
-        .count { color: #ffd60a; font-weight: bold; }
+        /* 整體背景：淺天藍色 */
+        body { 
+            font-family: -apple-system, sans-serif; 
+            background-color: #e3f2fd; 
+            color: #455a64; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        
+        /* 卡片設計：白色半透明感 */
+        .card { 
+            background: #ffffff; 
+            border-radius: 20px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        }
+        
+        /* 標題：深藍色 */
+        h2 { 
+            font-size: 20px; 
+            color: #1976d2; 
+            margin-top: 0; 
+            display: flex;
+            align-items: center;
+        }
+
+        /* 選項列 */
+        .item { 
+            display: flex; 
+            align-items: center; 
+            padding: 15px 0; 
+            border-bottom: 1px solid #f1f8ff; 
+            cursor: pointer; 
+        }
+        .item:last-child { border-bottom: none; }
+        
+        /* 勾選框顏色 */
+        input[type="checkbox"] { 
+            width: 24px; 
+            height: 24px; 
+            margin-right: 15px; 
+            accent-color: #2196f3; 
+        }
+
+        /* 儲存按鈕：湛藍色 */
+        button { 
+            width: 100%; 
+            background: #2196f3; 
+            color: white; 
+            border: none; 
+            padding: 18px; 
+            border-radius: 15px; 
+            font-size: 18px; 
+            font-weight: bold; 
+            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.3);
+        }
+        button:active { background: #1976d2; transform: scale(0.98); }
+
+        /* 統計列表 */
+        .stats-row { 
+            display: grid; 
+            grid-template-columns: 1fr auto; 
+            gap: 10px; 
+            align-items: center;
+            padding: 8px 0;
+        }
+        
+        /* 次數標籤 */
+        .count-badge { 
+            background: #bbdefb; 
+            color: #0d47a1; 
+            padding: 4px 12px; 
+            border-radius: 12px; 
+            font-weight: bold; 
+            font-size: 14px; 
+        }
     </style>
 </head>
 <body>
+
     <div class="card">
-        <h2>🌙 今晚保養紀錄</h2>
-        <div id="list"></div><br>
-        <button onclick="save()">✅ 儲存紀錄</button>
+        <h2>🔹 今晚保養清單</h2>
+        <div id="checkList"></div>
+        <br>
+        <button onclick="saveLog()">✨ 紀錄完成</button>
     </div>
+
     <div class="card">
-        <h2>📊 過去 7 天次數</h2>
-        <div id="stats" class="stats"></div>
+        <h2>📊 過去 7 天使用次數</h2>
+        <div id="statsList"></div>
     </div>
+
 <script>
-    const ps = ["妮維雅夜間修復霜", "雪芙蘭水乳霜", "精華液", "L630", "杏仁酸", "液態飛梭", "泥膜", "去角質", "面膜"];
-    let logs = JSON.parse(localStorage.getItem('skLogs') || '[]');
-    function render() {
-        document.getElementById('list').innerHTML = ps.map(p => `<label class="item"><input type="checkbox" value="${p}"><span>${p}</span></label>`).join('');
-        const sevenDaysAgo = Date.now() - 7*24*60*60*1000;
-        const recent = logs.filter(l => l.d >= sevenDaysAgo);
-        document.getElementById('stats').innerHTML = ps.map(p => {
-            const c = recent.filter(l => l.i.includes(p)).length;
-            return `<div>${p}</div><div class="count">${c} 次</div>`;
-        }).join('');
+    const products = ["妮維雅夜間修復霜", "雪芙蘭水乳霜", "精華液", "L630", "杏仁酸", "液態飛梭", "泥膜", "去角質", "面膜"];
+    
+    let logs = JSON.parse(localStorage.getItem('skincareLogs') || '[]');
+
+    function renderItems() {
+        const list = document.getElementById('checkList');
+        list.innerHTML = products.map(p => `
+            <label class="item">
+                <input type="checkbox" value="${p}">
+                <span>${p}</span>
+            </label>
+        `).join('');
     }
-    function save() {
-        const sel = Array.from(document.querySelectorAll('input:checked')).map(c => c.value);
-        if (sel.length === 0) return alert('請勾選！');
-        logs.push({ d: Date.now(), i: sel });
-        localStorage.setItem('skLogs', JSON.stringify(logs));
-        alert('儲存完成！'); render();
+
+    function saveLog() {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert('請至少勾選一項喔！');
+            return;
+        }
+
+        const selected = Array.from(checkboxes).map(cb => cb.value);
+        logs.push({ date: Date.now(), items: selected });
+        localStorage.setItem('skincareLogs', JSON.stringify(logs));
+        
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        renderStats();
+        alert('紀錄成功！');
     }
-    render();
+
+    function renderStats() {
+        const statsList = document.getElementById('statsList');
+        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        const recentLogs = logs.filter(log => log.date >= sevenDaysAgo);
+        
+        const counts = {};
+        products.forEach(p => counts[p] = 0);
+        recentLogs.forEach(log => {
+            log.items.forEach(item => { if(counts[item] !== undefined) counts[item]++; });
+        });
+
+        statsList.innerHTML = products.map(p => `
+            <div class="stats-row">
+                <span>${p}</span>
+                <span class="count-badge">${counts[p]} 次</span>
+            </div>
+        `).join('');
+    }
+
+    renderItems();
+    renderStats();
 </script>
 </body>
 </html>
