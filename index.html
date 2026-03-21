@@ -3,71 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>保養紀錄小助手</title>
+    <title>保養品日期紀錄器</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background-color: #e3f2fd; color: #455a64; margin: 0; padding: 20px; }
-        .card { background: #ffffff; border-radius: 20px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        h2 { font-size: 19px; color: #1976d2; margin-top: 0; }
-        .item { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid #f1f8ff; cursor: pointer; }
-        .item:last-child { border-bottom: none; }
-        input[type="checkbox"] { width: 22px; height: 22px; margin-right: 12px; accent-color: #2196f3; }
-        button { width: 100%; background: #2196f3; color: white; border: none; padding: 16px; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; }
-        button:active { background: #1976d2; transform: scale(0.98); }
+        body { font-family: -apple-system, sans-serif; background: #1c1c1e; color: white; padding: 20px; line-height: 1.6; }
+        .card { background: #2c2c2e; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        h2 { color: #0a84ff; margin-top: 0; font-size: 20px; }
         
-        .stats-row { display: grid; grid-template-columns: 1fr auto; padding: 8px 0; border-bottom: 1px dotted #e3f2fd; }
-        .count-badge { background: #bbdefb; color: #0d47a1; padding: 2px 10px; border-radius: 10px; font-weight: bold; font-size: 13px; }
+        /* 日期選擇器樣式 */
+        .date-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #3a3a3c; background: #3a3a3c; color: white; font-size: 18px; margin-bottom: 15px; box-sizing: border-box; }
         
-        /* 歷史日誌樣式：加上刪除按鈕 */
-        .history-item { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 12px 0; 
-            border-bottom: 1px solid #eee; 
-        }
-        .history-content { flex-grow: 1; }
-        .history-date { font-weight: bold; color: #1976d2; font-size: 14px; }
-        .history-products { font-size: 15px; color: #546e7a; margin-top: 2px; }
-        .delete-single { 
-            color: #ffb7b7; 
-            font-size: 20px; 
-            padding: 10px; 
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .delete-single:active { color: #ff5252; }
-
-        .btn-clear-all { background: none; color: #b0bec5; font-size: 13px; text-decoration: underline; margin-top: 30px; padding: 5px; }
+        .item { display: flex; align-items: center; padding: 15px 0; border-bottom: 1px solid #3a3a3c; cursor: pointer; font-size: 18px; }
+        input[type="checkbox"] { width: 25px; height: 25px; margin-right: 15px; accent-color: #30d158; }
+        
+        button { width: 100%; background: #0a84ff; color: white; border: none; padding: 18px; border-radius: 12px; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        button:active { background: #0056b3; }
+        
+        .stats-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #3a3a3c; }
+        .count-tag { color: #ffd60a; font-weight: bold; font-size: 18px; }
+        .hint { font-size: 12px; color: #8e8e93; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>🔹 今晚用了什麼？</h2>
+        <h2>📅 選擇日期與產品</h2>
+        <p class="hint">預設為今天，你也可以補登過去的日期</p>
+        <input type="date" id="targetDate" class="date-input">
+        
         <div id="checkList"></div>
-        <br>
-        <button onclick="saveLog()">✨ 儲存今日紀錄</button>
+        <button onclick="saveLog()">確認儲存</button>
     </div>
 
     <div class="card">
-        <h2>📊 7 天使用總計</h2>
+        <h2>📊 過去 7 天使用次數</h2>
+        <p class="hint">基於今天起算的前 7 天數據</p>
         <div id="statsList"></div>
-    </div>
-
-    <div class="card">
-        <h2>📅 最近 7 天詳細日誌</h2>
-        <div id="historyList"></div>
-        <button class="btn-clear-all" onclick="clearAll()">清除所有歷史紀錄</button>
     </div>
 
 <script>
     const products = ["妮維雅夜間修復霜", "雪芙蘭水乳霜", "精華液", "L630", "杏仁酸", "液態飛梭", "泥膜", "去角質", "面膜"];
-    const weekDays = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+    
+    // 初始化日期選擇器為今天
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('targetDate').value = today;
 
-    let logs = JSON.parse(localStorage.getItem('skincareLogs') || '[]');
+    // 讀取資料
+    let logs = JSON.parse(localStorage.getItem('skLogs') || '[]');
 
     function renderItems() {
-        document.getElementById('checkList').innerHTML = products.map(p => `
+        const list = document.getElementById('checkList');
+        list.innerHTML = products.map(p => `
             <label class="item">
                 <input type="checkbox" value="${p}">
                 <span>${p}</span>
@@ -76,79 +61,55 @@
     }
 
     function saveLog() {
+        const dateVal = document.getElementById('targetDate').value;
+        if (!dateVal) return alert('請先選擇日期！');
+
         const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
-        if (checkboxes.length === 0) return alert('請先勾選喔！');
+        if (checkboxes.length === 0) return alert('請至少勾選一項！');
+
         const selected = Array.from(checkboxes).map(cb => cb.value);
-        let now = new Date();
-        if (now.getHours() < 3) { now.setDate(now.getDate() - 1); }
         
-        // 給每一筆紀錄一個唯一的 ID (使用時間戳)
-        logs.push({ id: Date.now(), date: now.getTime(), items: selected });
-        localStorage.setItem('skincareLogs', JSON.stringify(logs));
+        // 檢查該日期是否已有紀錄，有的話先刪除（視為覆蓋）
+        logs = logs.filter(log => log.date !== dateVal);
         
+        const newEntry = { date: dateVal, items: selected };
+        logs.push(newEntry);
+        localStorage.setItem('skLogs', JSON.stringify(logs));
+        
+        // 重設勾選
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-        updateUI();
-        alert('紀錄成功！');
+        renderStats();
+        alert(dateVal + ' 紀錄成功！');
     }
 
-    // --- 新增：單筆刪除功能 ---
-    function deleteRecord(id) {
-        if (confirm('確定要刪除這一筆紀錄嗎？')) {
-            logs = logs.filter(log => log.id !== id);
-            localStorage.setItem('skincareLogs', JSON.stringify(logs));
-            updateUI();
-        }
-    }
-
-    function clearAll() {
-        if (confirm('確定要永久清空所有紀錄嗎？')) {
-            localStorage.removeItem('skincareLogs');
-            logs = [];
-            updateUI();
-        }
-    }
-
-    function updateUI() {
-        const threshold = new Date();
-        threshold.setHours(0,0,0,0);
-        const sevenDaysAgo = threshold.getTime() - (7 * 24 * 60 * 60 * 1000);
+    function renderStats() {
+        const statsList = document.getElementById('statsList');
         
-        // 取得所有紀錄並反轉（最新的在上面）
-        const sortedLogs = [...logs].reverse();
-        const recentLogs = logs.filter(log => log.date >= sevenDaysAgo);
-
-        // 1. 總計
+        // 計算 7 天前的日期字串
+        const now = new Date();
+        const sevenDaysAgoDate = new Date();
+        sevenDaysAgoDate.setDate(now.getDate() - 7);
+        const sevenDaysAgoStr = sevenDaysAgoDate.toISOString().split('T')[0];
+        
+        // 過濾出最近 7 天的紀錄
+        const recentLogs = logs.filter(log => log.date >= sevenDaysAgoStr);
+        
         const counts = {};
         products.forEach(p => counts[p] = 0);
         recentLogs.forEach(log => {
             log.items.forEach(item => { if(counts[item] !== undefined) counts[item]++; });
         });
-        document.getElementById('statsList').innerHTML = products.map(p => `
-            <div class="stats-row"><span>${p}</span><span class="count-badge">${counts[p]} 次</span></div>
-        `).join('');
 
-        // 2. 詳細日誌
-        const historyList = document.getElementById('historyList');
-        if (sortedLogs.length === 0) {
-            historyList.innerHTML = '<div style="text-align:center;color:#90a4ae;padding:20px;">尚無紀錄</div>';
-        } else {
-            // 顯示所有歷史，並加上刪除按鈕
-            historyList.innerHTML = sortedLogs.map(log => {
-                const d = new Date(log.date);
-                return `
-                <div class="history-item">
-                    <div class="history-content">
-                        <div class="history-date">${d.getMonth()+1}/${d.getDate()} (${weekDays[d.getDay()]})</div>
-                        <div class="history-products">${log.items.join('、')}</div>
-                    </div>
-                    <div class="delete-single" onclick="deleteRecord(${log.id})">✕</div>
-                </div>`;
-            }).join('');
-        }
+        statsList.innerHTML = products.map(p => `
+            <div class="stats-row">
+                <span>${p}</span>
+                <span class="count-tag">${counts[p]} 次</span>
+            </div>
+        `).join('');
     }
 
     renderItems();
-    updateUI();
+    renderStats();
 </script>
 </body>
 </html>
