@@ -9,8 +9,10 @@
         .card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,122,255,0.1); border: 1px solid #e1f0ff; }
         h2 { color: #007aff; margin-top: 0; font-size: 20px; border-bottom: 2px solid #e1f0ff; padding-bottom: 8px; }
         
-        /* 日期選擇器 */
-        .date-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #add8e6; background: #fff; color: #333; font-size: 18px; margin-bottom: 15px; box-sizing: border-box; }
+        /* 日期選擇與星期顯示 */
+        .date-row { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; }
+        .date-input { flex: 2; padding: 12px; border-radius: 10px; border: 1px solid #add8e6; background: #fff; color: #333; font-size: 18px; box-sizing: border-box; }
+        .day-label { flex: 1; text-align: center; background: #e1f0ff; color: #007aff; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 18px; }
         
         /* 選單項目 */
         .item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f8ff; cursor: pointer; font-size: 18px; }
@@ -26,7 +28,7 @@
         
         .history-item { background: #f9fcff; border: 1px solid #e1f0ff; padding: 12px; border-radius: 10px; margin-bottom: 10px; position: relative; }
         .history-date { font-weight: bold; color: #007aff; margin-bottom: 5px; }
-        .history-content { font-size: 14px; color: #666; padding-right: 50px; }
+        .history-content { font-size: 14px; color: #666; padding-right: 80px; word-break: break-all; }
         .del-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #ff3b30; padding: 8px 12px; font-size: 14px; width: auto; margin: 0; }
         
         .hint { font-size: 12px; color: #8aacc8; margin-bottom: 10px; }
@@ -37,7 +39,10 @@
     <div class="card">
         <h2>✨ 每日保養登記</h2>
         <p class="hint">選擇日期並勾選使用的產品</p>
-        <input type="date" id="targetDate" class="date-input">
+        <div class="date-row">
+            <input type="date" id="targetDate" class="date-input" onchange="updateDayLabel()">
+            <div id="dayLabel" class="day-label"></div>
+        </div>
         
         <div id="checkList"></div>
         <button onclick="saveLog()">確認儲存紀錄</button>
@@ -45,21 +50,34 @@
 
     <div class="card">
         <h2>📊 過去 7 天統計</h2>
+        <p id="statsRange" class="hint"></p>
         <div id="statsList"></div>
     </div>
 
     <div class="card">
         <h2>📜 歷史紀錄清單</h2>
-        <p class="hint">按日期排列，可點擊紅鈕刪除</p>
         <div id="historyList"></div>
     </div>
 
 <script>
     const products = ["妮維雅夜間修復霜", "雪芙蘭水乳霜", "精華液", "l630", "杏仁酸", "液態飛梭", "泥膜", "去角質", "面膜"];
+    const weekDays = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
     
-    // 初始化
-    document.getElementById('targetDate').value = new Date().toISOString().split('T')[0];
+    // 初始化日期
+    const dateInput = document.getElementById('targetDate');
+    dateInput.value = new Date().toISOString().split('T')[0];
+    
     let logs = JSON.parse(localStorage.getItem('skLogs') || '[]');
+
+    function getDayName(dateString) {
+        const date = new Date(dateString);
+        return weekDays[date.getDay()];
+    }
+
+    function updateDayLabel() {
+        const val = document.getElementById('targetDate').value;
+        document.getElementById('dayLabel').innerText = getDayName(val);
+    }
 
     function renderItems() {
         document.getElementById('checkList').innerHTML = products.map(p => `
@@ -71,23 +89,20 @@
     }
 
     function saveLog() {
-        const dateVal = document.getElementById('targetDate').value;
+        const dateVal = dateInput.value;
         const selected = Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
         if (!dateVal || selected.length === 0) return alert('請選擇日期與產品！');
 
-        // 移除舊有同日紀錄(覆蓋)
         logs = logs.filter(log => log.date !== dateVal);
         logs.push({ date: dateVal, items: selected });
-        
-        // 排序：日期由新到舊
         logs.sort((a, b) => b.date.localeCompare(a.date));
         
         saveAndRefresh();
-        alert(dateVal + ' 儲存成功！');
+        alert(dateVal + ' (' + getDayName(dateVal) + ') 儲存成功！');
     }
 
     function deleteLog(date) {
-        if (confirm('確定要刪除 ' + date + ' 的紀錄嗎？')) {
+        if (confirm('確定要刪除 ' + date + ' (' + getDayName(date) + ') 的紀錄嗎？')) {
             logs = logs.filter(log => log.date !== date);
             saveAndRefresh();
         }
@@ -101,9 +116,13 @@
     }
 
     function renderStats() {
-        const sevenDaysAgoStr = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
-        const recentLogs = logs.filter(log => log.date >= sevenDaysAgoStr);
+        const now = new Date();
+        const sevenDaysAgo = new Date(Date.now() - 7*24*60*60*1000);
+        const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
         
+        document.getElementById('statsRange').innerText = `統計範圍：${sevenDaysAgoStr} 至 今天`;
+
+        const recentLogs = logs.filter(log => log.date >= sevenDaysAgoStr);
         const counts = {};
         products.forEach(p => counts[p] = 0);
         recentLogs.forEach(log => {
@@ -126,7 +145,7 @@
         }
         historyDiv.innerHTML = logs.map(log => `
             <div class="history-item">
-                <div class="history-date">${log.date}</div>
+                <div class="history-date">${log.date} (${getDayName(log.date)})</div>
                 <div class="history-content">${log.items.join(', ')}</div>
                 <button class="del-btn" onclick="deleteLog('${log.date}')">刪除</button>
             </div>
@@ -134,6 +153,7 @@
     }
 
     renderItems();
+    updateDayLabel();
     renderStats();
     renderHistory();
 </script>
