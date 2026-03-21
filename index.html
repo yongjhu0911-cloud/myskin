@@ -5,102 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>保養紀錄小助手</title>
     <style>
-        /* 整體背景：淺天藍色 */
-        body { 
-            font-family: -apple-system, sans-serif; 
-            background-color: #e3f2fd; 
-            color: #455a64; 
-            margin: 0; 
-            padding: 20px; 
-        }
+        body { font-family: -apple-system, sans-serif; background-color: #e3f2fd; color: #455a64; margin: 0; padding: 20px; }
+        .card { background: #ffffff; border-radius: 20px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h2 { font-size: 19px; color: #1976d2; margin-top: 0; display: flex; align-items: center; }
         
-        /* 卡片設計：白色半透明感 */
-        .card { 
-            background: #ffffff; 
-            border-radius: 20px; 
-            padding: 20px; 
-            margin-bottom: 20px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
-        }
-        
-        /* 標題：深藍色 */
-        h2 { 
-            font-size: 20px; 
-            color: #1976d2; 
-            margin-top: 0; 
-            display: flex;
-            align-items: center;
-        }
-
-        /* 選項列 */
-        .item { 
-            display: flex; 
-            align-items: center; 
-            padding: 15px 0; 
-            border-bottom: 1px solid #f1f8ff; 
-            cursor: pointer; 
-        }
+        /* 選項樣式 */
+        .item { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid #f1f8ff; cursor: pointer; }
         .item:last-child { border-bottom: none; }
-        
-        /* 勾選框顏色 */
-        input[type="checkbox"] { 
-            width: 24px; 
-            height: 24px; 
-            margin-right: 15px; 
-            accent-color: #2196f3; 
-        }
+        input[type="checkbox"] { width: 22px; height: 22px; margin-right: 12px; accent-color: #2196f3; }
 
-        /* 儲存按鈕：湛藍色 */
-        button { 
-            width: 100%; 
-            background: #2196f3; 
-            color: white; 
-            border: none; 
-            padding: 18px; 
-            border-radius: 15px; 
-            font-size: 18px; 
-            font-weight: bold; 
-            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.3);
-        }
+        /* 按鈕 */
+        button { width: 100%; background: #2196f3; color: white; border: none; padding: 16px; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; }
         button:active { background: #1976d2; transform: scale(0.98); }
 
-        /* 統計列表 */
-        .stats-row { 
-            display: grid; 
-            grid-template-columns: 1fr auto; 
-            gap: 10px; 
-            align-items: center;
-            padding: 8px 0;
-        }
+        /* 統計與表格 */
+        .stats-row { display: grid; grid-template-columns: 1fr auto; padding: 8px 0; border-bottom: 1px dotted #e3f2fd; }
+        .count-badge { background: #bbdefb; color: #0d47a1; padding: 2px 10px; border-radius: 10px; font-weight: bold; font-size: 13px; }
         
-        /* 次數標籤 */
-        .count-badge { 
-            background: #bbdefb; 
-            color: #0d47a1; 
-            padding: 4px 12px; 
-            border-radius: 12px; 
-            font-weight: bold; 
-            font-size: 14px; 
-        }
+        /* 詳細週表格樣式 */
+        .history-item { padding: 12px 0; border-bottom: 1px solid #eee; }
+        .history-date { font-weight: bold; color: #1976d2; font-size: 14px; margin-bottom: 4px; }
+        .history-products { font-size: 15px; color: #546e7a; line-height: 1.4; }
+        .no-data { text-align: center; color: #90a4ae; padding: 20px; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>🔹 今晚保養清單</h2>
+        <h2>🔹 今晚用了什麼？</h2>
         <div id="checkList"></div>
         <br>
-        <button onclick="saveLog()">✨ 紀錄完成</button>
+        <button onclick="saveLog()">✨ 儲存今日紀錄</button>
     </div>
 
     <div class="card">
-        <h2>📊 過去 7 天使用次數</h2>
+        <h2>📊 7 天使用總計</h2>
         <div id="statsList"></div>
+    </div>
+
+    <div class="card">
+        <h2>📅 最近 7 天詳細日誌</h2>
+        <div id="historyList"></div>
     </div>
 
 <script>
     const products = ["妮維雅夜間修復霜", "雪芙蘭水乳霜", "精華液", "L630", "杏仁酸", "液態飛梭", "泥膜", "去角質", "面膜"];
-    
+    const weekDays = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
     let logs = JSON.parse(localStorage.getItem('skincareLogs') || '[]');
 
     function renderItems() {
@@ -115,41 +66,61 @@
 
     function saveLog() {
         const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
-        if (checkboxes.length === 0) {
-            alert('請至少勾選一項喔！');
-            return;
-        }
+        if (checkboxes.length === 0) return alert('請先勾選喔！');
 
         const selected = Array.from(checkboxes).map(cb => cb.value);
-        logs.push({ date: Date.now(), items: selected });
+        // 儲存包含日期、星期、項目的資料
+        logs.push({ 
+            date: Date.now(), 
+            items: selected 
+        });
         localStorage.setItem('skincareLogs', JSON.stringify(logs));
         
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-        renderStats();
-        alert('紀錄成功！');
+        updateUI();
+        alert('儲存成功！');
     }
 
-    function renderStats() {
+    function updateUI() {
         const statsList = document.getElementById('statsList');
+        const historyList = document.getElementById('historyList');
         const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-        const recentLogs = logs.filter(log => log.date >= sevenDaysAgo);
         
+        // 篩選出最近 7 天的紀錄
+        const recentLogs = logs.filter(log => log.date >= sevenDaysAgo).reverse();
+
+        // 1. 更新總計次數
         const counts = {};
         products.forEach(p => counts[p] = 0);
         recentLogs.forEach(log => {
             log.items.forEach(item => { if(counts[item] !== undefined) counts[item]++; });
         });
-
         statsList.innerHTML = products.map(p => `
             <div class="stats-row">
                 <span>${p}</span>
                 <span class="count-badge">${counts[p]} 次</span>
             </div>
         `).join('');
+
+        // 2. 更新詳細日誌表格
+        if (recentLogs.length === 0) {
+            historyList.innerHTML = '<div class="no-data">目前尚無紀錄</div>';
+        } else {
+            historyList.innerHTML = recentLogs.map(log => {
+                const d = new Date(log.date);
+                const dateStr = `${d.getMonth()+1}/${d.getDate()} (${weekDays[d.getDay()]})`;
+                return `
+                    <div class="history-item">
+                        <div class="history-date">${dateStr}</div>
+                        <div class="history-products">${log.items.join('、')}</div>
+                    </div>
+                `;
+            }).join('');
+        }
     }
 
     renderItems();
-    renderStats();
+    updateUI();
 </script>
 </body>
 </html>
