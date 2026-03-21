@@ -8,25 +8,17 @@
         body { font-family: -apple-system, sans-serif; background-color: #e3f2fd; color: #455a64; margin: 0; padding: 20px; }
         .card { background: #ffffff; border-radius: 20px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         h2 { font-size: 19px; color: #1976d2; margin-top: 0; display: flex; align-items: center; }
-        
-        /* 選項樣式 */
         .item { display: flex; align-items: center; padding: 14px 0; border-bottom: 1px solid #f1f8ff; cursor: pointer; }
         .item:last-child { border-bottom: none; }
         input[type="checkbox"] { width: 22px; height: 22px; margin-right: 12px; accent-color: #2196f3; }
-
-        /* 按鈕 */
         button { width: 100%; background: #2196f3; color: white; border: none; padding: 16px; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; }
         button:active { background: #1976d2; transform: scale(0.98); }
-
-        /* 統計與表格 */
         .stats-row { display: grid; grid-template-columns: 1fr auto; padding: 8px 0; border-bottom: 1px dotted #e3f2fd; }
         .count-badge { background: #bbdefb; color: #0d47a1; padding: 2px 10px; border-radius: 10px; font-weight: bold; font-size: 13px; }
-        
-        /* 詳細週表格樣式 */
         .history-item { padding: 12px 0; border-bottom: 1px solid #eee; }
         .history-date { font-weight: bold; color: #1976d2; font-size: 14px; margin-bottom: 4px; }
         .history-products { font-size: 15px; color: #546e7a; line-height: 1.4; }
-        .no-data { text-align: center; color: #90a4ae; padding: 20px; font-size: 14px; }
+        .special-note { font-size: 12px; color: #90a4ae; margin-top: 5px; text-align: center; }
     </style>
 </head>
 <body>
@@ -36,6 +28,7 @@
         <div id="checkList"></div>
         <br>
         <button onclick="saveLog()">✨ 儲存今日紀錄</button>
+        <div class="special-note">註：凌晨 3 點前紀錄將自動歸入前一天</div>
     </div>
 
     <div class="card">
@@ -69,27 +62,38 @@
         if (checkboxes.length === 0) return alert('請先勾選喔！');
 
         const selected = Array.from(checkboxes).map(cb => cb.value);
-        // 儲存包含日期、星期、項目的資料
+        let now = new Date();
+        
+        // --- 核心邏輯更新 ---
+        // 如果現在是 0 點、1 點或 2 點 (也就是 3 點以前)
+        if (now.getHours() < 3) {
+            // 把日期往回推 1 天 (24小時)
+            now.setDate(now.getDate() - 1);
+        }
+        
         logs.push({ 
-            date: Date.now(), 
+            date: now.getTime(), 
             items: selected 
         });
         localStorage.setItem('skincareLogs', JSON.stringify(logs));
         
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
         updateUI();
-        alert('儲存成功！');
+        alert('紀錄成功！已歸檔至：' + (now.getMonth()+1) + '/' + now.getDate());
     }
 
     function updateUI() {
         const statsList = document.getElementById('statsList');
         const historyList = document.getElementById('historyList');
-        const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        // 計算 7 天前的門檻時間 (從今天凌晨 0 點算起往前 7 天)
+        const threshold = new Date();
+        threshold.setHours(0,0,0,0);
+        const sevenDaysAgo = threshold.getTime() - (7 * 24 * 60 * 60 * 1000);
         
-        // 篩選出最近 7 天的紀錄
+        // 篩選紀錄
         const recentLogs = logs.filter(log => log.date >= sevenDaysAgo).reverse();
 
-        // 1. 更新總計次數
+        // 1. 總計次數
         const counts = {};
         products.forEach(p => counts[p] = 0);
         recentLogs.forEach(log => {
@@ -102,9 +106,9 @@
             </div>
         `).join('');
 
-        // 2. 更新詳細日誌表格
+        // 2. 詳細日誌
         if (recentLogs.length === 0) {
-            historyList.innerHTML = '<div class="no-data">目前尚無紀錄</div>';
+            historyList.innerHTML = '<div style="text-align:center;color:#90a4ae;padding:20px;">尚無紀錄</div>';
         } else {
             historyList.innerHTML = recentLogs.map(log => {
                 const d = new Date(log.date);
